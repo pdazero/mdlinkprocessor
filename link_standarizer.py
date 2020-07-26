@@ -20,7 +20,7 @@ def wikilink_to_mdlink(wikilink):
         filename = wikilink_dictionary['wikilink']
 
         # Check if its a link to another md note
-        groups = re.search('.*\..*', filename)
+        groups = re.search(r'.*\..*', filename)
         if not groups:
             # Add ".md" to the filename
             filename += ".md"
@@ -35,17 +35,18 @@ def wikilink_to_mdlink(wikilink):
     else:
         return False
 
+
 # Split wikilink in it's parts
 def wikilink_split(wikilink):
     # Extract the link
-    groups = re.search('\[\[(.*)\]\]', wikilink)
+    groups = re.search(r'\[\[(.*)\]\]', wikilink)
 
     if groups:
-        wikilink_split = {
+        wikilink_dictionary = {
             'wikilink': groups.group(1)
         }
 
-        return wikilink_split
+        return wikilink_dictionary
     else:
         # Something went wrong
         return False
@@ -53,7 +54,6 @@ def wikilink_split(wikilink):
 
 # Split markdown links in it's parts, else return False
 def mdlink_split(mdlink):
-
     # First check if it is an internal link or url link
     mdlink_dictionary = internal_mdlink_split(mdlink)
 
@@ -70,15 +70,16 @@ def mdlink_split(mdlink):
     else:
         return False
 
+
 # Split markdown INTERNAL links
 def url_mdlink_split(mdlink):
     # Regex pattern to split markdown internal links in it's parts
-    regex = re.compile(r"""
+    regex = re.compile("""
         ^           # Line begin anchor
         (!)?        # 1 Optional Embedded
-        \[(.*)\]    # 2 Optional Title
-        \((.*\/)?   # 3 Optional path
-        (.*)\)      # 4 Filename
+        [(.*)]    # 2 Optional Title
+        ((.*/)?   # 3 Optional path
+        (.*))      # 4 Filename
         $           # Line end anchor
         """, re.X)
 
@@ -95,9 +96,14 @@ def url_mdlink_split(mdlink):
         }
 
         # Clean optional components
-        if not mdlink_dictionary['Embedded']: mdlink_dictionary['Embedded'] = ''
-        if not mdlink_dictionary['Title']: mdlink_dictionary['Title'] = ''
-        if not mdlink_dictionary['Path']: mdlink_dictionary['Path'] = ''
+        if not mdlink_dictionary['Embedded']:
+            mdlink_dictionary['Embedded'] = ''
+
+        if not mdlink_dictionary['Title']:
+            mdlink_dictionary['Title'] = ''
+
+        if not mdlink_dictionary['Path']:
+            mdlink_dictionary['Path'] = ''
 
         return mdlink_dictionary
 
@@ -113,7 +119,7 @@ def internal_mdlink_split(mdlink):
         ^           # Line begin anchor
         (!)?        # 1 Optional Embedded
         \[(.*)\]    # 2 Optional Title
-        \((.*\/)?   # 3 Optional path
+        \((.*/)?   # 3 Optional path
         (.*)\)      # 4 Filename
         $           # Line end anchor
         """, re.X)
@@ -131,9 +137,14 @@ def internal_mdlink_split(mdlink):
         }
 
         # Clean optional components
-        if not mdlink_dictionary['Embedded']: mdlink_dictionary['Embedded'] = ''
-        if not mdlink_dictionary['Title']: mdlink_dictionary['Title'] = ''
-        if not mdlink_dictionary['Path']: mdlink_dictionary['Path'] = ''
+        if not mdlink_dictionary['Embedded']:
+            mdlink_dictionary['Embedded'] = ''
+
+        if not mdlink_dictionary['Title']:
+            mdlink_dictionary['Title'] = ''
+
+        if not mdlink_dictionary['Path']:
+            mdlink_dictionary['Path'] = ''
 
         return mdlink_dictionary
 
@@ -144,7 +155,6 @@ def internal_mdlink_split(mdlink):
 
 # If title is not double-bracketed, add another pair of brackets and change title to filename for compatibility
 def mdlink_to_wikilink(mdlink):
-
     # Check this is an internal mdlink
     var_type = link_type(mdlink)
 
@@ -158,12 +168,13 @@ def mdlink_to_wikilink(mdlink):
 
         else:
             # Check if title is already double-bracketed
-            groups = re.search('\[.*\].*', mdlink_dictionary['Title'])
+            groups = re.search(r'\[.*\].*', mdlink_dictionary['Title'])
             if not groups:
                 # Add another pair of brackets
                 mdlink_dictionary['Title'] = "[" + mdlink_dictionary['Title'] + "]"
 
-            wikilink = mdlink_dictionary['Embedded'] + "[" + mdlink_dictionary['Title'] + "]" + "(" + mdlink_dictionary['Path'] + mdlink_dictionary['Filename'] + ")"
+            wikilink = mdlink_dictionary['Embedded'] + "[" + mdlink_dictionary['Title'] + "]" + "(" + mdlink_dictionary[
+                'Path'] + mdlink_dictionary['Filename'] + ")"
 
             return wikilink
 
