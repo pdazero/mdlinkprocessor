@@ -1,11 +1,12 @@
-import urllib.parse
+import urllib
+
 import re
+from bs4 import BeautifulSoup
 
 
+# Convert wiki style embedded images (e.g. Obsidian app) ![[image nice.jpg]] and links [[linked file]] to
+# compatible markdown ![[]](image%20nice.jpg)
 def wikilink_to_mdlink(wikilink):
-    # Convert wiki style embedded images (e.g. Obsidian app) ![[image nice.jpg]] and links [[linked file]] to
-    # compatible markdown ![[]](image%20nice.jpg)
-    #
     # The trick here is that with double brackets we get compatibility for both wiki-style linkers (1writer,
     # Obsidian for example) and standard markdown editors such as Typora.
     #
@@ -71,48 +72,39 @@ def mdlink_split(mdlink):
         return False
 
 
-# Split markdown INTERNAL links
-def url_mdlink_split(mdlink):
-    # Regex pattern to split markdown internal links in it's parts
-    regex = re.compile("""
-        ^           # Line begin anchor
-        (!)?        # 1 Optional Embedded
-        [(.*)]    # 2 Optional Title
-        ((.*/)?   # 3 Optional path
-        (.*))      # 4 Filename
-        $           # Line end anchor
-        """, re.X)
+# Split a href link
+# 'Title'
+# 'Url'
+# 'Class'
+def ahreflink_split(ahreflink):
+    # First check it's the correct link type
+    var_type = link_type(ahreflink)
 
-    search = regex.search(mdlink)
+    if var_type == 'ahreflink':
+        soup = BeautifulSoup(ahreflink, 'html.parser')
 
-    # If regex pattern matches the input string
-    if search:
+        a_soup = soup.find('a')
 
-        mdlink_dictionary = {
-            'Embedded': search.group(1),
-            'Title': search.group(2),
-            'Path': search.group(3),
-            'Filename': search.group(4)
+        ahreflink_dictionary = {
+            'Title': a_soup.string,
+            'Url': a_soup.get('href'),
+            'Class': a_soup.get('class')
         }
 
         # Clean optional components
-        if not mdlink_dictionary['Embedded']:
-            mdlink_dictionary['Embedded'] = ''
+        if not ahreflink_dictionary['Class']:
+            ahreflink_dictionary['Class'] = ''
 
-        if not mdlink_dictionary['Title']:
-            mdlink_dictionary['Title'] = ''
-
-        if not mdlink_dictionary['Path']:
-            mdlink_dictionary['Path'] = ''
-
-        return mdlink_dictionary
-
-    # mdlink was not detected on the input string
+        return ahreflink_dictionary
     else:
         return False
 
 
 # Split markdown INTERNAL links
+# 'Embedded': Optional exclamation mark
+# 'Title'
+# 'Path'
+# 'Filename'
 def internal_mdlink_split(mdlink):
     # Regex pattern to split markdown internal links in it's parts
     regex = re.compile(r"""
@@ -153,8 +145,17 @@ def internal_mdlink_split(mdlink):
         return False
 
 
-# If title is not double-bracketed, add another pair of brackets and change title to filename for compatibility
-def mdlink_to_wikilink(mdlink):
+def internal_mdlink_to_wikilink(mdlink):
+    """
+    If title is not double-bracketed, add another pair of brackets and change title to filename for compatibility.
+
+    i.e.: [Title](some%20file.md) -> [[Some File]](some%20file.md)
+
+    :string string: Expects a link from a markdown file
+
+    :return: returns a wiki-linkified mdlink
+    """
+
     # Check this is an internal mdlink
     var_type = link_type(mdlink)
 
@@ -167,12 +168,14 @@ def mdlink_to_wikilink(mdlink):
             return False
 
         else:
-            # Check if title is already double-bracketed
+            # Check if title is already double-bracketed, in that case leave it as is
             groups = re.search(r'\[.*\].*', mdlink_dictionary['Title'])
             if not groups:
-                # Add another pair of brackets
-                mdlink_dictionary['Title'] = "[" + mdlink_dictionary['Title'] + "]"
+                # Add another pair of brackets and set up url decoded filename as title
+                mdlink_dictionary['Title'] = "[" + urllib.parse.unquote(mdlink_dictionary['Filename']) + "]"
 
+            # Decode and encode filename to make sure its encoded
+            mdlink_dictionary['Filename'] = urllib.parse.quote(urllib.parse.unquote(mdlink_dictionary['Filename']))
             wikilink = mdlink_dictionary['Embedded'] + "[" + mdlink_dictionary['Title'] + "]" + "(" + mdlink_dictionary[
                 'Path'] + mdlink_dictionary['Filename'] + ")"
 
@@ -181,14 +184,19 @@ def mdlink_to_wikilink(mdlink):
     else:
         return False
 
-
-# Analyze the string and see if it's a link, and which type. Returns either:
-# 'urlmdlink': Markdown url link i.e. [title](url)
-# 'internalmdlink': Markdown internal link ie. [titile](path/to/mdfile.md)
-# 'ahreflink': HTML formatted link i.e. <a href='url'>title</a>
-# 'wikilink': Extended markdown wililink i.e. [[mdfile]] (without .md extension)
-# False: No link detected
 def link_type(string):
+    """
+    Analyze the string and see if it's a link, and which type. Returns either:
+       - **'urlmdlink'**: Markdown url link i.e. [title](url)
+       - **'internalmdlink'**: Markdown internal link ie. [titile](path/to/mdfile.md)
+       - **'ahreflink'**: HTML formatted link i.e. <a href='url'>title</a>
+       - **'wikilink'**: Extended markdown wililink i.e. [[mdfile]] (without .md extension)
+       - **False**: No link detected
+
+    :string string: Expects a link from a markdown file
+
+    :return: returns link type
+    """
     # First check if it is an internal link or url link
     mdlink_dictionary = internal_mdlink_split(string)
 
@@ -206,5 +214,11 @@ def link_type(string):
 
         if wikilink_dictionary:
             return 'wikilink'
+        else:
+            # Check if its an ahref link
+            soup = BeautifulSoup(string, 'html.parser')
+
+            if soup.find('a'):
+                return 'ahreflink'
 
     return False
