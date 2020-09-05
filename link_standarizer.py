@@ -1,8 +1,49 @@
 import urllib
+from urllib import parse
 
 import re
 from bs4 import BeautifulSoup
 
+
+## Convert internal mdlinks to standarizedinternalmdlink
+def internal_mdlink_to_standarizedinternal_mdlink(mdlink):
+    """
+    If title is not double-bracketed, add another pair of brackets and change title to filename for compatibility.
+
+    i.e.: [Title](some%20file.md) -> [[Some File]](some%20file.md)
+
+    :string string: Expects a link from a markdown file
+
+    :return: returns a wiki-linkified mdlink
+    """
+
+    # Check this is an internal mdlink
+    var_type = link_type(mdlink)
+
+    if var_type == 'internalmdlink':
+        # Get parts of mdlink
+        mdlink_dictionary = mdlink_split(mdlink)
+
+        if not mdlink_dictionary:
+            # Something went wrong
+            return False
+
+        else:
+            # Check if title is already double-bracketed, in that case leave it as is
+            groups = re.search(r'\[.*\].*', mdlink_dictionary['Title'])
+            if not groups:
+                # Add another pair of brackets and set up url decoded filename as title
+                mdlink_dictionary['Title'] = "[" + urllib.parse.unquote(mdlink_dictionary['Filename']) + "]"
+
+            # Decode and encode filename to make sure its encoded
+            mdlink_dictionary['Filename'] = urllib.parse.quote(urllib.parse.unquote(mdlink_dictionary['Filename']))
+            wikilink = mdlink_dictionary['Embedded'] + "[" + mdlink_dictionary['Title'] + "]" + "(" + mdlink_dictionary[
+                'Path'] + mdlink_dictionary['Filename'] + ")"
+
+            return wikilink
+
+    else:
+        return False
 
 # Convert wiki style embedded images (e.g. Obsidian app) ![[image nice.jpg]] and links [[linked file]] to
 # compatible markdown ![[]](image%20nice.jpg)
@@ -62,7 +103,7 @@ def mdlink_split(mdlink):
         # Now see if it's URL
         url_split = urllib.parse.urlparse(mdlink_dictionary['Path'])
 
-        if url_split.scheme is not '':
+        if url_split.scheme != '':
             mdlink_dictionary['Url'] = mdlink_dictionary['Path'] + mdlink_dictionary['Filename']
             del mdlink_dictionary['Filename']
             del mdlink_dictionary['Path']
@@ -111,7 +152,7 @@ def internal_mdlink_split(mdlink):
         ^           # Line begin anchor
         (!)?        # 1 Optional Embedded
         \[(.*)\]    # 2 Optional Title
-        \((.*/)?   # 3 Optional path
+        \((.*/)?    # 3 Optional path
         (.*)\)      # 4 Filename
         $           # Line end anchor
         """, re.X)
@@ -145,52 +186,14 @@ def internal_mdlink_split(mdlink):
         return False
 
 
-def internal_mdlink_to_wikilink(mdlink):
-    """
-    If title is not double-bracketed, add another pair of brackets and change title to filename for compatibility.
-
-    i.e.: [Title](some%20file.md) -> [[Some File]](some%20file.md)
-
-    :string string: Expects a link from a markdown file
-
-    :return: returns a wiki-linkified mdlink
-    """
-
-    # Check this is an internal mdlink
-    var_type = link_type(mdlink)
-
-    if var_type == 'internalmdlink':
-        # Get parts of mdlink
-        mdlink_dictionary = mdlink_split(mdlink)
-
-        if not mdlink_dictionary:
-            # Something went wrong
-            return False
-
-        else:
-            # Check if title is already double-bracketed, in that case leave it as is
-            groups = re.search(r'\[.*\].*', mdlink_dictionary['Title'])
-            if not groups:
-                # Add another pair of brackets and set up url decoded filename as title
-                mdlink_dictionary['Title'] = "[" + urllib.parse.unquote(mdlink_dictionary['Filename']) + "]"
-
-            # Decode and encode filename to make sure its encoded
-            mdlink_dictionary['Filename'] = urllib.parse.quote(urllib.parse.unquote(mdlink_dictionary['Filename']))
-            wikilink = mdlink_dictionary['Embedded'] + "[" + mdlink_dictionary['Title'] + "]" + "(" + mdlink_dictionary[
-                'Path'] + mdlink_dictionary['Filename'] + ")"
-
-            return wikilink
-
-    else:
-        return False
-
-def link_type(string):
+def link_type(string: str) -> str:
     """
     Analyze the string and see if it's a link, and which type. Returns either:
        - **'urlmdlink'**: Markdown url link i.e. [title](url)
-       - **'internalmdlink'**: Markdown internal link ie. [titile](path/to/mdfile.md)
+       - **'internalmdlink'**: Markdown internal link ie. [title](path/to/mdfile.md)
+       - **'standardizedinternalmdlink'**: Markdown wikilink-compatible internal link i.e. [[mdfile]](path/to/mdfile.md)
        - **'ahreflink'**: HTML formatted link i.e. <a href='url'>title</a>
-       - **'wikilink'**: Extended markdown wililink i.e. [[mdfile]] (without .md extension)
+       - **'wikilink'**: Extended markdown wikilink without .md extension i.e. [[mdfile]]
        - **False**: No link detected
 
     :string string: Expects a link from a markdown file
@@ -203,10 +206,14 @@ def link_type(string):
     if mdlink_dictionary:
         url_split = urllib.parse.urlparse(mdlink_dictionary['Path'])
 
-        if url_split.scheme is not '':
+        if url_split.scheme != '':
             return 'urlmdlink'
         else:
-            return 'internalmdlink'
+            # See if title is a wikilink
+            if not wikilink_split('['+mdlink_dictionary['Title']+']'):
+                return 'internalmdlink'
+            else:
+                return 'standardizedinternalmdlink'
 
     # Not mdlink. Check if it's wikilink
     else:
