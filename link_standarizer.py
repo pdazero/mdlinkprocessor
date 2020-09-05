@@ -4,6 +4,19 @@ from urllib import parse
 import re
 from bs4 import BeautifulSoup
 
+## Convert any link to standarized format
+def anylink_to_standarizedmdlink(link :str) -> str:
+    linkType = link_type(link)
+
+    if linkType == 'wikilink':
+        return wikilink_to_mdlink(link)
+    elif linkType == 'internalmdlink':
+        return internal_mdlink_to_standarizedinternal_mdlink(link)
+    elif linkType == 'standardizedinternalmdlink':
+        return link
+    else:
+        return False
+
 
 ## Convert internal mdlinks to standarizedinternalmdlink
 def internal_mdlink_to_standarizedinternal_mdlink(mdlink):

@@ -69,7 +69,7 @@ class TestMdlinkSplit(unittest.TestCase):
 
 
 class TestEmbeddedImageMdlinkToStandarizedImageMdLink(unittest.TestCase):
-    def test_mdlink_to_wikilink(self):
+    def test_internal_mdlink_to_standarizedinternal_mdlink(self):
         # Embedded Image with title but no path
         result = link_standarizer.internal_mdlink_to_standarizedinternal_mdlink("![optional title](some%20image.png)")
         self.assertEqual(result, "![[some image.png]](some%20image.png)")
@@ -103,6 +103,10 @@ class TestEmbeddedImageMdlinkToStandarizedImageMdLink(unittest.TestCase):
         # Embedded Image with no title and path
         result = link_standarizer.internal_mdlink_to_standarizedinternal_mdlink("![](/path/to/some image.png)")
         self.assertEqual(result, "![[some image.png]](/path/to/some%20image.png)")
+
+        # Not a MD Link
+        result = link_standarizer.internal_mdlink_to_standarizedinternal_mdlink("Not a link here")
+        self.assertEqual(result, False)
 
 class TestInternalMdlinkToStandarizedInternalMdLink(unittest.TestCase):
     def test_mdlink_to_wikilink(self):
@@ -167,8 +171,73 @@ class TestLinkType(unittest.TestCase):
         self.assertEqual(result, False)
 
 
+class TestAnyLinkToStandarizedLink(unittest.TestCase):
+    def test_anylink_to_standarizedmdlink(self):
+        result = link_standarizer.anylink_to_standarizedmdlink("![[MD File]](path/to/MD%20File.md)")
+        self.assertEqual(result, "![[MD File]](path/to/MD%20File.md)")
+
+        # Embedded Image with title but no path
+        result = link_standarizer.anylink_to_standarizedmdlink("![optional title](some%20image.png)")
+        self.assertEqual(result, "![[some image.png]](some%20image.png)")
+
+        # Embedded Image with title and path
+        result = link_standarizer.anylink_to_standarizedmdlink(
+            "![optional title](/path/to/some%20image.png)")
+        self.assertEqual(result, "![[some image.png]](/path/to/some%20image.png)")
+
+        # Embedded Image with no title and no path
+        result = link_standarizer.anylink_to_standarizedmdlink("![](some%20image.png)")
+        self.assertEqual(result, "![[some image.png]](some%20image.png)")
+
+        # Embedded Image with no title and path
+        result = link_standarizer.anylink_to_standarizedmdlink("![](/path/to/some%20image.png)")
+        self.assertEqual(result, "![[some image.png]](/path/to/some%20image.png)")
+
+        # -------- Same tests but without url encoding ------------------------------
+
+        # Embedded Image with title but no path
+        result = link_standarizer.anylink_to_standarizedmdlink("![optional title](some image.png)")
+        self.assertEqual(result, "![[some image.png]](some%20image.png)")
+
+        # Embedded Image with title and path
+        result = link_standarizer.anylink_to_standarizedmdlink(
+            "![optional title](/path/to/some image.png)")
+        self.assertEqual(result, "![[some image.png]](/path/to/some%20image.png)")
+
+        # Embedded Image with no title and no path
+        result = link_standarizer.anylink_to_standarizedmdlink("![](some image.png)")
+        self.assertEqual(result, "![[some image.png]](some%20image.png)")
+
+        # Embedded Image with no title and path
+        result = link_standarizer.anylink_to_standarizedmdlink("![](/path/to/some image.png)")
+        self.assertEqual(result, "![[some image.png]](/path/to/some%20image.png)")
+
+        # Not a MD Link
+        result = link_standarizer.anylink_to_standarizedmdlink("Not a link here")
+        self.assertEqual(result, False)
+
+        # -------------
+
+        # Internal link with title but no path
+        result = link_standarizer.anylink_to_standarizedmdlink("[A note](some%20file.md)")
+        self.assertEqual(result, "[[some file.md]](some%20file.md)")
+
+        # Internal link with title and path
+        result = link_standarizer.anylink_to_standarizedmdlink("[A note](/path/to/some%20file.md)")
+        self.assertEqual(result, "[[some file.md]](/path/to/some%20file.md)")
+
+        # -------- Same tests but without url encoding ------------------------------
+
+        result = link_standarizer.anylink_to_standarizedmdlink("[A note](some file.md)")
+        self.assertEqual(result, "[[some file.md]](some%20file.md)")
+
+        # Internal link with title and path
+        result = link_standarizer.anylink_to_standarizedmdlink("[A note](/path/to/some file.md)")
+        self.assertEqual(result, "[[some file.md]](/path/to/some%20file.md)")
+
+
 class TestAhrefLinkSplit(unittest.TestCase):
-    def ahreflink_split(self):
+    def test_ahreflink_split(self):
         # 'ahreflink': HTML formatted link i.e. <a href='url'>title</a>
         result = link_standarizer.ahreflink_split("<a href='https://go.to/somefile.html'>title</a>")
         self.assertEqual(result, {
@@ -177,14 +246,27 @@ class TestAhrefLinkSplit(unittest.TestCase):
             'Class': ''
         })
 
-        result = link_standarizer.ahreflink_split(
-            "<a href='https://go.to/somefile%20with%20space.html'>Another title</a>")
+        result = link_standarizer.ahreflink_split("<a href='https://go.to/somefile%20with%20space.html'>Another title</a>")
         self.assertEqual(result, {
-            'Title': 'title',
+            'Title': 'Another title',
             'Url': 'https://go.to/somefile%20with%20space.html',
             'Class': ''
         })
 
+        # a href link to internal attachment
+        result = link_standarizer.ahreflink_split("<a href='attachments/document.pdf'>PDF Document</a>")
+        self.assertEqual(result, {
+            'Title': 'PDF Document',
+            'Url': 'attachments/document.pdf',
+            'Class': ''
+        })
+
+        result = link_standarizer.ahreflink_split("<a href='attachments/folder%20with%20spaces/document.pdf'>PDF Document</a>")
+        self.assertEqual(result, {
+            'Title': 'PDF Document',
+            'Url': 'attachments/folder%20with%20spaces/document.pdf',
+            'Class': ''
+        })
 
 if __name__ == '__main__':
     unittest.main()
