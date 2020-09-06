@@ -127,6 +127,13 @@ class TestInternalMdlinkToStandarizedInternalMdLink(unittest.TestCase):
         result = link_standarizer.internal_mdlink_to_standarizedinternal_mdlink("[A note](/path/to/some file.md)")
         self.assertEqual(result, "[[some file.md]](/path/to/some%20file.md)")
 
+        # Other links that shouldn't be converted ----------------------------------
+        result = link_standarizer.internal_mdlink_to_standarizedinternal_mdlink("[A note](https://somenote.com/some%20file.md)")
+        self.assertEqual(result, False)
+
+        result = link_standarizer.internal_mdlink_to_standarizedinternal_mdlink("[A note](otherurl://somenote.com/some%20file.md)")
+        self.assertEqual(result, False)
+
 
 class TestLinkType(unittest.TestCase):
     def test_link_type(self):
@@ -158,13 +165,13 @@ class TestLinkType(unittest.TestCase):
         result = link_standarizer.link_type("[[MD File]]")
         self.assertEqual(result, "wikilink")
 
-        # 'standardizedinternalmdlink': Internal markdown link wikilink-compatible i.e. [[mdfile]](/path/to/mdfile.md)
+        # 'standardizedmdlink': Internal markdown link wikilink-compatible i.e. [[mdfile]](/path/to/mdfile.md)
         result = link_standarizer.link_type("[[MD File]](path/to/MD%20File.md)")
-        self.assertEqual(result, "standardizedinternalmdlink")
+        self.assertEqual(result, "standardizedmdlink")
 
-        # Embedded standardizedinternalmdlink (transclusion)
+        # Embedded standardizedmdlink (transclusion)
         result = link_standarizer.link_type("![[MD File]](path/to/MD%20File.md)")
-        self.assertEqual(result, "standardizedinternalmdlink")
+        self.assertEqual(result, "standardizedmdlink")
 
         # False: No link detected
         result = link_standarizer.link_type("This does *not* have any links here")
@@ -234,6 +241,30 @@ class TestAnyLinkToStandarizedLink(unittest.TestCase):
         # Internal link with title and path
         result = link_standarizer.anylink_to_standarizedmdlink("[A note](/path/to/some file.md)")
         self.assertEqual(result, "[[some file.md]](/path/to/some%20file.md)")
+
+        # Other links that shouldn't be converted ----------------------------------
+        result = link_standarizer.anylink_to_standarizedmdlink("[A note](https://somenote.com/some%20file.md)")
+        self.assertEqual(result, False)
+
+        result = link_standarizer.anylink_to_standarizedmdlink("[A note](otherurl://somenote.com/some%20file.md)")
+        self.assertEqual(result, False)
+
+class TestMultilineStandarizer(unittest.TestCase):
+    def test_multiline_anylink_standarize(self):
+        result = link_standarizer.multiline_anylink_standarize("![[MD File]](path/to/MD%20File.md)\n![optional title](some%20image.png)\n![optional title](/path/to/some%20image.png)")
+        self.assertEqual(result, "![[MD File]](path/to/MD%20File.md)\n![[some image.png]](some%20image.png)\n![[some image.png]](/path/to/some%20image.png)")
+
+class TestMultiLinkInLineStandarizer(unittest.TestCase):
+    def test_multilinkinline_anylink_standarize(self):
+        result = link_standarizer.multiline_anylink_standarize("![[MD File]](path/to/MD%20File.md) some text ![optional title](some%20image.png) ![optional title](/path/to/some%20image.png)")
+        self.assertEqual(result, "![[MD File]](path/to/MD%20File.md) some text ![[some image.png]](some%20image.png) ![[some image.png]](/path/to/some%20image.png)")
+
+class TestMultiLinkInLineAndMultilineStandarizer(unittest.TestCase):
+    def test_multilinkinline_anylink_standarize(self):
+        result = link_standarizer.multiline_anylink_standarize("""![[MD File]](path/to/MD%20File.md) some text ![optional title](some%20image.png)
+        ![optional title](/path/to/some%20image.png)""")
+        self.assertEqual(result, """![[MD File]](path/to/MD%20File.md) some text ![[some image.png]](some%20image.png)
+        ![[some image.png]](/path/to/some%20image.png)""")
 
 
 class TestAhrefLinkSplit(unittest.TestCase):

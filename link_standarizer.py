@@ -12,7 +12,7 @@ def anylink_to_standarizedmdlink(link :str) -> str:
         return wikilink_to_mdlink(link)
     elif linkType == 'internalmdlink':
         return internal_mdlink_to_standarizedinternal_mdlink(link)
-    elif linkType == 'standardizedinternalmdlink':
+    elif linkType == 'standardizedmdlink':
         return link
     else:
         return False
@@ -154,6 +154,46 @@ def ahreflink_split(ahreflink):
         return False
 
 
+# mdlink regex
+def internal_mdlink_regex():
+    # Regex pattern to split markdown internal links in it's parts
+    regex = re.compile(r"""
+        ^           # Line begin anchor
+        (!)?        # 1 Optional Embedded
+        \[(.*)\]    # 2 Optional Title
+        \((.*/)?    # 3 Optional path
+        (.*)\)      # 4 Filename
+        $           # Line end anchor
+        """, re.X)
+
+    return regex
+
+
+# Find links in a text file and standarizes it, line by line
+def multiline_anylink_standarize(lines: str) -> list:
+    split_lines = lines.splitlines(True)
+    regex = internal_mdlink_regex()
+    result = ''
+    l= ''
+    
+    for l in split_lines:
+        # Find any type of standarizable links: wikilinks and internalmdlinks
+        # search = regex.search(l)
+        regex = re.compile(r"(!?\[{1,2}[^\]]*?\]{1,2}\(.*?\)|!?\[{2}.*?\]{2}(?!\())")
+        matches = regex.finditer(l)
+        fixlength = 0
+
+        for m in matches:
+            standarizedmdlink = anylink_to_standarizedmdlink(m.group(0))
+            startpos = m.start(0) - fixlength
+            endpos = m.end(0) - fixlength
+            l = l[: startpos] + standarizedmdlink + l[endpos:]
+            fixlength = len(m.group(0)) - len(standarizedmdlink)
+
+        result = result + l
+
+    return result
+
 # Split markdown INTERNAL links
 # 'Embedded': Optional exclamation mark
 # 'Title'
@@ -204,7 +244,7 @@ def link_type(string: str) -> str:
     Analyze the string and see if it's a link, and which type. Returns either:
        - **'urlmdlink'**: Markdown url link i.e. [title](url)
        - **'internalmdlink'**: Markdown internal link ie. [title](path/to/mdfile.md)
-       - **'standardizedinternalmdlink'**: Markdown wikilink-compatible internal link i.e. [[mdfile]](path/to/mdfile.md)
+       - **'standardizedmdlink'**: Markdown wikilink-compatible internal link i.e. [[mdfile]](path/to/mdfile.md)
        - **'ahreflink'**: HTML formatted link i.e. <a href='url'>title</a>
        - **'wikilink'**: Extended markdown wikilink without .md extension i.e. [[mdfile]]
        - **False**: No link detected
@@ -226,7 +266,7 @@ def link_type(string: str) -> str:
             if not wikilink_split('['+mdlink_dictionary['Title']+']'):
                 return 'internalmdlink'
             else:
-                return 'standardizedinternalmdlink'
+                return 'standardizedmdlink'
 
     # Not mdlink. Check if it's wikilink
     else:
