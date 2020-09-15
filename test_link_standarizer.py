@@ -254,6 +254,13 @@ class TestMultilineStandarizer(unittest.TestCase):
         result = link_standarizer.multiline_anylink_standarize("![[MD File]](path/to/MD%20File.md)\n![optional title](some%20image.png)\n![optional title](/path/to/some%20image.png)")
         self.assertEqual(result, "![[MD File]](path/to/MD%20File.md)\n![[some image.png]](some%20image.png)\n![[some image.png]](/path/to/some%20image.png)")
 
+        # Other links that shouldn't be converted ----------------------------------
+        # result = link_standarizer.multiline_anylink_standarize("[A note](https://somenote.com/some%20file.md)")
+        # self.assertEqual(result, "[A note](https://somenote.com/some%20file.md)")
+
+        # result = link_standarizer.multiline_anylink_standarize("[A note](otherurl://somenote.com/some%20file.md)")
+        # self.assertEqual(result, "[A note](otherurl://somenote.com/some%20file.md)")
+
 class TestMultiLinkInLineStandarizer(unittest.TestCase):
     def test_multilinkinline_anylink_standarize(self):
         result = link_standarizer.multiline_anylink_standarize("![[MD File]](path/to/MD%20File.md) some text ![optional title](some%20image.png) ![optional title](/path/to/some%20image.png)")

@@ -4,21 +4,25 @@ from urllib import parse
 import re
 from bs4 import BeautifulSoup
 
-## Convert any link to standarized format
-def anylink_to_standarizedmdlink(link :str) -> str:
-    linkType = link_type(link)
+# Most functions return str or False
+from typing import Union
 
-    if linkType == 'wikilink':
+
+# Convert any link to standarized format
+def anylink_to_standarizedmdlink(link: str) -> Union[bool, str]:
+    linktype = link_type(link)
+
+    if linktype == 'wikilink':
         return wikilink_to_mdlink(link)
-    elif linkType == 'internalmdlink':
+    elif linktype == 'internalmdlink':
         return internal_mdlink_to_standarizedinternal_mdlink(link)
-    elif linkType == 'standardizedmdlink':
+    elif linktype == 'standardizedmdlink':
         return link
     else:
         return False
 
 
-## Convert internal mdlinks to standarizedinternalmdlink
+# Convert internal mdlinks to standarizedinternalmdlink
 def internal_mdlink_to_standarizedinternal_mdlink(mdlink):
     """
     If title is not double-bracketed, add another pair of brackets and change title to filename for compatibility.
@@ -43,7 +47,7 @@ def internal_mdlink_to_standarizedinternal_mdlink(mdlink):
 
         else:
             # Check if title is already double-bracketed, in that case leave it as is
-            groups = re.search(r'\[.*\].*', mdlink_dictionary['Title'])
+            groups = re.search(r'\[.*].*', mdlink_dictionary['Title'])
             if not groups:
                 # Add another pair of brackets and set up url decoded filename as title
                 mdlink_dictionary['Title'] = "[" + urllib.parse.unquote(mdlink_dictionary['Filename']) + "]"
@@ -57,6 +61,7 @@ def internal_mdlink_to_standarizedinternal_mdlink(mdlink):
 
     else:
         return False
+
 
 # Convert wiki style embedded images (e.g. Obsidian app) ![[image nice.jpg]] and links [[linked file]] to
 # compatible markdown ![[]](image%20nice.jpg)
@@ -94,7 +99,7 @@ def wikilink_to_mdlink(wikilink):
 # Split wikilink in it's parts
 def wikilink_split(wikilink):
     # Extract the link
-    groups = re.search(r'\[\[(.*)\]\]', wikilink)
+    groups = re.search(r'\[\[(.*?)]]', wikilink)
 
     if groups:
         wikilink_dictionary = {
@@ -154,57 +159,45 @@ def ahreflink_split(ahreflink):
         return False
 
 
-# mdlink regex
-def internal_mdlink_regex():
-    # Regex pattern to split markdown internal links in it's parts
-    regex = re.compile(r"""
-        ^           # Line begin anchor
-        (!)?        # 1 Optional Embedded
-        \[(.*)\]    # 2 Optional Title
-        \((.*/)?    # 3 Optional path
-        (.*)\)      # 4 Filename
-        $           # Line end anchor
-        """, re.X)
-
-    return regex
-
-
 # Find links in a text file and standarizes it, line by line
-def multiline_anylink_standarize(lines: str) -> list:
+def multiline_anylink_standarize(lines: str) -> str:
     split_lines = lines.splitlines(True)
-    regex = internal_mdlink_regex()
     result = ''
-    l= ''
-    
-    for l in split_lines:
+
+    for ln in split_lines:
         # Find any type of standarizable links: wikilinks and internalmdlinks
-        # search = regex.search(l)
-        regex = re.compile(r"(!?\[{1,2}[^\]]*?\]{1,2}\(.*?\)|!?\[{2}.*?\]{2}(?!\())")
-        matches = regex.finditer(l)
+        regex = re.compile(r"(!?\[{1,2}[^]]*?]{1,2}\(.*?\)|!?\[{2}.*?]{2}(?!\())")
+        matches = regex.finditer(ln)
         fixlength = 0
 
         for m in matches:
             standarizedmdlink = anylink_to_standarizedmdlink(m.group(0))
             startpos = m.start(0) - fixlength
             endpos = m.end(0) - fixlength
-            l = l[: startpos] + standarizedmdlink + l[endpos:]
-            fixlength = len(m.group(0)) - len(standarizedmdlink)
 
-        result = result + l
+            if (standarizedmdlink is not False):
+                ln = ln[: startpos] + standarizedmdlink + ln[endpos:]
+                fixlength = len(m.group(0)) - len(standarizedmdlink)
+            else:
+                ln = ln + ln[: startpos] + m.group(0) + ln[endpos:]
+                fixlength = 0
+
+        result = result + ln
 
     return result
+
 
 # Split markdown INTERNAL links
 # 'Embedded': Optional exclamation mark
 # 'Title'
 # 'Path'
 # 'Filename'
-def internal_mdlink_split(mdlink):
+def internal_mdlink_split(mdlink: str) -> Union[dict, bool]:
     # Regex pattern to split markdown internal links in it's parts
     regex = re.compile(r"""
         ^           # Line begin anchor
         (!)?        # 1 Optional Embedded
-        \[(.*)\]    # 2 Optional Title
+        \[(.*)]    # 2 Optional Title
         \((.*/)?    # 3 Optional path
         (.*)\)      # 4 Filename
         $           # Line end anchor
@@ -239,7 +232,8 @@ def internal_mdlink_split(mdlink):
         return False
 
 
-def link_type(string: str) -> str:
+# Return if the string is a link, and which type
+def link_type(string: str) -> Union[str, bool]:
     """
     Analyze the string and see if it's a link, and which type. Returns either:
        - **'urlmdlink'**: Markdown url link i.e. [title](url)
@@ -263,7 +257,7 @@ def link_type(string: str) -> str:
             return 'urlmdlink'
         else:
             # See if title is a wikilink
-            if not wikilink_split('['+mdlink_dictionary['Title']+']'):
+            if not wikilink_split('[' + mdlink_dictionary['Title'] + ']'):
                 return 'internalmdlink'
             else:
                 return 'standardizedmdlink'
